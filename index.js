@@ -16,12 +16,35 @@ const csvWriter = createCsvWriter({
     ]
 })
 
+async function getBrowser ({ remote = false }) {
+    try {
+        let browser
+        if (!remote) {
+            browser = await puppeteer.launch({
+                userDataDir: './user_data',
+            })
+        } else {
+            const brUserName = process.env.BRIGHT_DATA_USERNAME
+            const brPassword = process.env.BRIGHT_DATA_PASSWORD
+            const brHost = process.env.BRIGHT_DATA_HOST
+            const auth = `${brUserName}:${brPassword}`
+
+            browser = await puppeteer.connect({
+                browserWSEndpoint: `wss://${auth}@${brHost}`,
+            })
+        }
+        return browser
+    } catch (error) {
+        console.error('Failed to connect to Bright Data Proxy', error)
+    }
+}
+
 async function scrapeData(storeId) {
     const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
 
-    const browser = await puppeteer.launch({
-        userDataDir: './user_data',
-      })
+    const browser = await getBrowser({
+        remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
+    })
     const page = await browser.newPage()
     
     let storeName = ''
