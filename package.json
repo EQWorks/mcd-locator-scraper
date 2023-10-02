@@ -1,0 +1,12 @@
+{
+  "name": "mcd-locator-scraper",
+  "version": "0.0.1",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "csv-parse": "^5.5.0",
+    "csv-stringify": "^6.4.2",
+    "puppeteer": "^21.3.6"
+  }
+}
