@@ -14,7 +14,7 @@ const csvWriter = createCsvWriter({
         { id: 'Store Name', title: 'Store Name' },
         { id: 'Address', title: 'Address' },
     ]
-});
+})
 
 async function scrapeData(storeId) {
     const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
@@ -49,6 +49,18 @@ async function scrapeData(storeId) {
     return { storeName, address }
 }
 
+async function scrapeDataWithRetry(storeId, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await scrapeData(storeId)
+        } catch (error) {
+            console.error(`Error scraping data for storeId ${storeId}. Retry ${i + 1} of ${retries}`)
+            await delay(5000) // wait for 5 seconds before retrying
+        }
+    }
+    throw new Error(`Failed to scrape data for storeId ${storeId} after ${retries} retries`)
+}
+
 async function main() {
     const inputData = []
     
@@ -62,7 +74,7 @@ async function main() {
 
             for (const data of inputData) {
                 console.log(`Processing Store: ${data.store_no}`)
-                const details = await scrapeData(data.store_no)
+                const details = await scrapeDataWithRetry(data.store_no)
                 console.log(`Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
                 // Write the scraped data immediately after fetching
                 await csvWriter.writeRecords([{
