@@ -4,6 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "start": "env $(print-env) node index.js"
+  },
   "dependencies": {
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.6.0",
