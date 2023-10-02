@@ -1,9 +1,20 @@
 import puppeteer from 'puppeteer'
 import fs from 'fs'
-import { parse } from 'csv-parse'
-import { stringify } from 'csv-stringify'
+import csvParser from 'csv-parser'
+import { createObjectCsvWriter as createCsvWriter } from 'csv-writer'
+
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+const csvWriter = createCsvWriter({
+    path: 'data/output.csv',
+    header: [
+        { id: 'store_no', title: 'store_no' },
+        { id: 'customers_unique', title: 'customers_unique' },
+        { id: 'Store Name', title: 'Store Name' },
+        { id: 'Address', title: 'Address' },
+    ]
+});
 
 async function scrapeData(storeId) {
     const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
@@ -13,43 +24,59 @@ async function scrapeData(storeId) {
       })
     const page = await browser.newPage()
     
-    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    let storeName = ''
+    let address = ''
     
-    await delay(2000) // Add a 2 second delay
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await delay(1000)
+    
+    // Try to get the store name
+    try {
+        storeName = await page.$eval('h1.cmp-restaurant-detail__details-meta-title', el => el.textContent.trim())
+    } catch (e) {
+        console.warn(`Failed to find store name for StoreID: ${storeId}`)
+    }
 
-    const storeName = await page.$eval('h1.cmp-restaurant-detail__details-meta-title', el => el.innerText)
-    const address = await page.$eval('span.cmp-restaurant-detail__details-meta-address', el => el.innerText.trim())
-    console.log({ storeName, address })
+    // Try to get the address
+    try {
+        address = await page.$eval('span.cmp-restaurant-detail__details-meta-address', el => el.textContent.trim().replace(/<br\s*\/?>/i, ", "))
+    } catch (e) {
+        console.warn(`Failed to find address for StoreID: ${storeId}`)
+    }
+
     await browser.close()
     
     return { storeName, address }
 }
 
 async function main() {
-    const input = fs.readFileSync('data/input.csv', 'utf8')
+    const inputData = []
+    
+    fs.createReadStream('data/input.csv')
+        .pipe(csvParser())
+        .on('data', (row) => inputData.push(row))
+        .on('end', async () => {
+            
+            // Write headers first
+            await csvWriter.writeRecords([])
 
-    const records = []
-    parse(input, {
-        columns: true,
-        skip_empty_lines: true
-    }, async (err, data) => {
-        if (err) throw err
+            for (const data of inputData) {
+                console.log(`Processing Store: ${data.store_no}`)
+                const details = await scrapeData(data.store_no)
+                console.log(`Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
+                // Write the scraped data immediately after fetching
+                await csvWriter.writeRecords([{
+                    store_no: data.store_no,
+                    customers_unique: data.customers_unique,
+                    'Store Name': details.storeName || '',
+                    Address: details.address || '',
+                }])
 
-        for (let record of data) {
-            const { storeName, address } = await scrapeData(record.store_no)
-            records.push({
-                store_no: record.store_no,
-                customers_unique: record.customers_unique,
-                'Store Name': storeName,
-                Address: address
-            })
-        }
+                await delay(1000)
+            }
 
-        stringify(records, { header: true }, (err, output) => {
-            if (err) throw err
-            fs.writeFileSync('data/output.csv', output)
+            console.log('Process Completed!')
         })
-    })
 }
 
 main().catch(console.error)
