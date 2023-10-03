@@ -72,8 +72,12 @@ async function scrapeData(storeId) {
 
   let storeName = ''
   let address = ''
+  const urls = [caUrl]
+  if (process.env.US_SITE) {
+    urls.push(usUrl)
+  }
     
-  for (const url of [usUrl, caUrl]) {
+  for (const url of urls) {
     try {
       await page.goto(url, { waitUntil: 'networkidle2' })
       await delay(1000)
@@ -117,9 +121,6 @@ async function main() {
     .pipe(csvParser())
     .on('data', (row) => inputData.push(row))
     .on('end', async () => {
-            
-      // Write headers first
-      await csvWriter.writeRecords([])
 
       for (const data of inputData) {
         console.log(`Processing Store: ${data.store_no}`)
