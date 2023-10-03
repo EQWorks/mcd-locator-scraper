@@ -39,14 +39,27 @@ async function getBrowser ({ remote = false }) {
     }
 }
 
+// Reuse the browser to save resources
+const browserInstance = getBrowser({
+    remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
+})
+
 async function scrapeData(storeId) {
     const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
 
-    const browser = await getBrowser({
-        remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
-    })
+    const browser = await browserInstance
     const page = await browser.newPage()
-    
+
+    // Block images, styles, fonts etc. to reduce data usage
+    await page.setRequestInterception(true)
+    page.on('request', (req) => {
+        if (['image', 'stylesheet', 'font', 'script'].includes(req.resourceType())) {
+            req.abort()
+        } else {
+            req.continue()
+        }
+    })
+
     let storeName = ''
     let address = ''
     
@@ -67,7 +80,7 @@ async function scrapeData(storeId) {
         console.warn(`Failed to find address for StoreID: ${storeId}`)
     }
 
-    await browser.close()
+    await page.close()
     
     return { storeName, address }
 }
@@ -109,6 +122,7 @@ async function main() {
 
                 await delay(1000)
             }
+            await browser.close();  // Close the browser after all tasks are completed
 
             console.log('Process Completed!')
         })
