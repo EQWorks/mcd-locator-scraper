@@ -45,7 +45,8 @@ const browserInstance = getBrowser({
 })
 
 async function scrapeData(storeId) {
-    const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
+    const caUrl = `https://www.mcdonalds.com/ca/en-ca/location/p/city/address/${storeId}.html`
+    const usUrl = `https://www.mcdonalds.com/us/en-us/location/p/city/address/${storeId}.html`
 
     const browser = await browserInstance
     const page = await browser.newPage()
@@ -53,7 +54,7 @@ async function scrapeData(storeId) {
     // Block images, styles, fonts etc. to reduce data usage
     await page.setRequestInterception(true)
     page.on('request', (req) => {
-        if (['image', 'stylesheet', 'font', 'script'].includes(req.resourceType())) {
+        if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
             req.abort()
         } else {
             req.continue()
@@ -63,21 +64,24 @@ async function scrapeData(storeId) {
     let storeName = ''
     let address = ''
     
-    await page.goto(url, { waitUntil: 'domcontentloaded' })
-    await delay(1000)
-    
-    // Try to get the store name
-    try {
-        storeName = await page.$eval('h1.cmp-restaurant-detail__details-meta-title', el => el.textContent.trim())
-    } catch (e) {
-        console.warn(`Failed to find store name for StoreID: ${storeId}`)
-    }
+    for (const url of [usUrl, caUrl]) {
+        try {
+            await page.goto(url, { waitUntil: 'networkidle2' })
+            await delay(1000)
+            console.log(`Scraping ${url}`)
 
-    // Try to get the address
-    try {
-        address = await page.$eval('span.cmp-restaurant-detail__details-meta-address', el => el.textContent.trim().replace(/<br\s*\/?>/i, ", "))
-    } catch (e) {
-        console.warn(`Failed to find address for StoreID: ${storeId}`)
+            // Try to get the store name
+            storeName = await page.$eval('h1.cmp-restaurant-detail__details-meta-title', el => el.textContent.trim())
+            
+            // Try to get the address
+            address = await page.$eval('span.cmp-restaurant-detail__details-meta-address', el => el.textContent.trim().replace(/<br\s*\/?>/i, ", "))
+            if (storeName && address) {
+                console.log(`Found details for StoreID: ${storeId} on ${url}`)
+                break  // If both details are found, break out of the loop
+            }
+        } catch (e) {
+            console.warn(`Failed to find details for StoreID: ${storeId} on ${url}`)
+        }
     }
 
     await page.close()
@@ -110,15 +114,15 @@ async function main() {
 
             for (const data of inputData) {
                 console.log(`Processing Store: ${data.store_no}`)
-                let details = {};
+                let details = {}
                 
                 // Check if 'Store Name' or 'Address' is missing in the input data
                 if (!data['Store Name'] || !data['Address']) {
-                    details = await scrapeDataWithRetry(data.store_no);
+                    details = await scrapeDataWithRetry(data.store_no)
                     console.log(`Scraped Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
                 } else {
-                    details.storeName = data['Store Name'];
-                    details.address = data['Address'];
+                    details.storeName = data['Store Name']
+                    details.address = data['Address']
                     console.log(`Using Existing Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
                 }
                 
@@ -132,7 +136,7 @@ async function main() {
 
                 await delay(1000)
             }
-            await browser.close();  // Close the browser after all tasks are completed
+            await browser.close()  // Close the browser after all tasks are completed
 
             console.log('Process Completed!')
         })
