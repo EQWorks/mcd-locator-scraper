@@ -90,7 +90,7 @@ async function scrapeDataWithRetry(storeId, retries = 3) {
         try {
             return await scrapeData(storeId)
         } catch (error) {
-            console.error(`Error scraping data for storeId ${storeId}. Retry ${i + 1} of ${retries}`)
+            console.error(`Error scraping data for storeId ${storeId}. Retry ${i + 1} of ${retries}`, error)
             await delay(5000) // wait for 5 seconds before retrying
         }
     }
@@ -110,9 +110,19 @@ async function main() {
 
             for (const data of inputData) {
                 console.log(`Processing Store: ${data.store_no}`)
-                const details = await scrapeDataWithRetry(data.store_no)
-                console.log(`Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
-                // Write the scraped data immediately after fetching
+                let details = {};
+                
+                // Check if 'Store Name' or 'Address' is missing in the input data
+                if (!data['Store Name'] || !data['Address']) {
+                    details = await scrapeDataWithRetry(data.store_no);
+                    console.log(`Scraped Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
+                } else {
+                    details.storeName = data['Store Name'];
+                    details.address = data['Address'];
+                    console.log(`Using Existing Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
+                }
+                
+                // Write the data (either scraped or existing) to the output file
                 await csvWriter.writeRecords([{
                     store_no: data.store_no,
                     customers_unique: data.customers_unique,
