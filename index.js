@@ -124,9 +124,11 @@ async function main() {
             for (const data of inputData) {
                 console.log(`Processing Store: ${data.store_no}`)
                 let details = {}
-                
+                let scraped = false // Flag to determine if we scraped data or used existing
+
                 // Check if 'Store Name' or 'Address' is missing in the input data
                 if (!data['Store Name'] || !data['Address']) {
+                    scraped = true
                     details = await scrapeDataWithRetry(data.store_no)
                     console.log(`Scraped Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
                 } else {
@@ -148,9 +150,15 @@ async function main() {
                     await getBrowserInstance()
                 }
 
-                await delay(1000)
+                // Only delay if data was scraped
+                if (scraped) {
+                    await delay(1000)
+                }
             }
-            await browser.close()  // Close the browser after all tasks are completed
+
+            if (browser && browser.isConnected()) {
+                await browser.close()  // Close the browser after all tasks are completed
+            }
 
             console.log('Process Completed!')
         })
