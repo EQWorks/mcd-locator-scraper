@@ -39,16 +39,25 @@ async function getBrowser ({ remote = false }) {
     }
 }
 
-// Reuse the browser to save resources
-const browserInstance = getBrowser({
-    remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
-})
+let browser
+
+async function getBrowserInstance() {
+    if (browser && browser.isConnected()) {
+        return browser
+    }
+
+    if (browser) {
+        await browser.close() // Close any previously opened browser, if any
+    }
+
+    return getBrowser({ remote: process.env.REMOTE })
+}
 
 async function scrapeData(storeId) {
     const caUrl = `https://www.mcdonalds.com/ca/en-ca/location/p/city/address/${storeId}.html`
     const usUrl = `https://www.mcdonalds.com/us/en-us/location/p/city/address/${storeId}.html`
 
-    const browser = await browserInstance
+    const browser = await getBrowserInstance()
     const page = await browser.newPage()
 
     // Block images, styles, fonts etc. to reduce data usage
@@ -115,9 +124,11 @@ async function main() {
             for (const data of inputData) {
                 console.log(`Processing Store: ${data.store_no}`)
                 let details = {}
-                
+                let scraped = false // Flag to determine if we scraped data or used existing
+
                 // Check if 'Store Name' or 'Address' is missing in the input data
                 if (!data['Store Name'] || !data['Address']) {
+                    scraped = true
                     details = await scrapeDataWithRetry(data.store_no)
                     console.log(`Scraped Data for Store: ${data.store_no} - ${details.storeName} - ${details.address}`)
                 } else {
@@ -134,9 +145,20 @@ async function main() {
                     Address: details.address || '',
                 }])
 
-                await delay(1000)
+                // Reopen the browser every 50 records to keep the connection fresh and avoid issues
+                if (inputData.indexOf(data) % 50 === 0) {
+                    await getBrowserInstance()
+                }
+
+                // Only delay if data was scraped
+                if (scraped) {
+                    await delay(1000)
+                }
             }
-            await browser.close()  // Close the browser after all tasks are completed
+
+            if (browser && browser.isConnected()) {
+                await browser.close()  // Close the browser after all tasks are completed
+            }
 
             console.log('Process Completed!')
         })
