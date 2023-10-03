@@ -39,14 +39,17 @@ async function getBrowser ({ remote = false }) {
     }
 }
 
+// Reuse the browser to save resources
+const browserInstance = getBrowser({
+    remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
+})
+
 async function scrapeData(storeId) {
     const url = `https://www.mcdonalds.com/ca/en-ca/location/a/a/22/${storeId}.html`
 
-    const browser = await getBrowser({
-        remote: process.env.REMOTE, // set to false if you don't want to use Bright Data Proxy
-    })
+    const browser = await browserInstance
     const page = await browser.newPage()
-    
+
     let storeName = ''
     let address = ''
     
