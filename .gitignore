@@ -3,3 +3,13 @@ node_modules/
 
 # User history
 user_data/
+
+# IDE files
+.DS_Store
+
+# Data files
+data/
+data_*/
+
+# Environment variables
+.env
