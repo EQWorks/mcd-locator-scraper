@@ -5,11 +5,13 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "start": "env $(print-env) node index.js"
+    "start": "env $(print-env) node index.js",
+    "lint": "eslint index.js"
   },
   "dependencies": {
     "csv-parser": "^3.0.0",
     "csv-writer": "^1.6.0",
+    "eslint": "^8.50.0",
     "puppeteer": "^21.3.6"
   }
 }
